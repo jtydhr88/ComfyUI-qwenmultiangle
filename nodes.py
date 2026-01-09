@@ -40,6 +40,10 @@ class QwenMultiangleCameraNode:
                     "step": 0.1,
                     "display": "slider"
                 }),
+                "default_prompts": ("BOOLEAN", {
+                    "default": False,
+                    "display": "checkbox"
+                }),
             },
             "optional": {
                 "image": ("IMAGE",),
@@ -55,54 +59,93 @@ class QwenMultiangleCameraNode:
     CATEGORY = "image/multiangle"
     OUTPUT_NODE = True
 
-    def generate_prompt(self, horizontal_angle, vertical_angle, zoom, image=None, unique_id=None):
+    def generate_prompt(self, horizontal_angle, vertical_angle, zoom, default_prompts=False, image=None, unique_id=None):
         # Validate input ranges
         horizontal_angle = max(0, min(360, int(horizontal_angle)))
         vertical_angle = max(-30, min(90, int(vertical_angle)))
         zoom = max(0.0, min(10.0, float(zoom)))
 
         h_angle = horizontal_angle % 360
-        if h_angle < 22.5 or h_angle >= 337.5:
-            h_direction = "front view"
-        elif h_angle < 67.5:
-            h_direction = "front-right view"
-        elif h_angle < 112.5:
-            h_direction = "right side view"
-        elif h_angle < 157.5:
-            h_direction = "back-right view"
-        elif h_angle < 202.5:
-            h_direction = "back view"
-        elif h_angle < 247.5:
-            h_direction = "back-left view"
-        elif h_angle < 292.5:
-            h_direction = "left side view"
-        else:
-            h_direction = "front-left view"
 
-        if vertical_angle < -15:
-            v_direction = "low angle"
-        elif vertical_angle < 15:
-            v_direction = "eye level"
-        elif vertical_angle < 45:
-            v_direction = "high angle"
-        elif vertical_angle < 75:
-            v_direction = "bird's eye view"
-        else:
-            v_direction = "top-down view"
+        if default_prompts:
+            # Qwen-style prompts format
+            if h_angle < 22.5 or h_angle >= 337.5:
+                h_direction = "front view"
+            elif h_angle < 67.5:
+                h_direction = "front-right quarter view"
+            elif h_angle < 112.5:
+                h_direction = "right side view"
+            elif h_angle < 157.5:
+                h_direction = "back-right quarter view"
+            elif h_angle < 202.5:
+                h_direction = "back view"
+            elif h_angle < 247.5:
+                h_direction = "back-left quarter view"
+            elif h_angle < 292.5:
+                h_direction = "left side view"
+            else:
+                h_direction = "front-left quarter view"
 
-        if zoom < 2:
-            distance = "wide shot"
-        elif zoom < 4:
-            distance = "medium-wide shot"
-        elif zoom < 6:
-            distance = "medium shot"
-        elif zoom < 8:
-            distance = "medium close-up"
-        else:
-            distance = "close-up"
+            if vertical_angle < -15:
+                v_direction = "low-angle shot"
+            elif vertical_angle < 15:
+                v_direction = "eye-level shot"
+            elif vertical_angle < 75:
+                v_direction = "elevated shot"
+            else:
+                v_direction = "high-angle shot"
 
-        prompt = f"{h_direction}, {v_direction}, {distance}"
-        prompt += f" (horizontal: {horizontal_angle}, vertical: {vertical_angle}, zoom: {zoom:.1f})"
+            if zoom < 2:
+                distance = "wide shot"
+            elif zoom < 6:
+                distance = "medium shot"
+            else:
+                distance = "close-up"
+
+            prompt = f"{h_direction} {v_direction} {distance}"
+        else:
+            # Default format
+            if h_angle < 22.5 or h_angle >= 337.5:
+                h_direction = "front view"
+            elif h_angle < 67.5:
+                h_direction = "front-right view"
+            elif h_angle < 112.5:
+                h_direction = "right side view"
+            elif h_angle < 157.5:
+                h_direction = "back-right view"
+            elif h_angle < 202.5:
+                h_direction = "back view"
+            elif h_angle < 247.5:
+                h_direction = "back-left view"
+            elif h_angle < 292.5:
+                h_direction = "left side view"
+            else:
+                h_direction = "front-left view"
+
+            if vertical_angle < -15:
+                v_direction = "low angle"
+            elif vertical_angle < 15:
+                v_direction = "eye level"
+            elif vertical_angle < 45:
+                v_direction = "high angle"
+            elif vertical_angle < 75:
+                v_direction = "bird's eye view"
+            else:
+                v_direction = "top-down view"
+
+            if zoom < 2:
+                distance = "wide shot"
+            elif zoom < 4:
+                distance = "medium-wide shot"
+            elif zoom < 6:
+                distance = "medium shot"
+            elif zoom < 8:
+                distance = "medium close-up"
+            else:
+                distance = "close-up"
+
+            prompt = f"{h_direction}, {v_direction}, {distance}"
+            prompt += f" (horizontal: {horizontal_angle}, vertical: {vertical_angle}, zoom: {zoom:.1f})"
 
         # Convert image to base64 for frontend display
         image_base64 = ""
@@ -147,7 +190,7 @@ class QwenMultiangleCameraNode:
         return {"ui": {"image_base64": [image_base64]}, "result": (prompt,)}
 
     @classmethod
-    def IS_CHANGED(cls, horizontal_angle, vertical_angle, zoom, image=None, unique_id=None):
+    def IS_CHANGED(cls, horizontal_angle, vertical_angle, zoom, default_prompts=False, image=None, unique_id=None):
         import time
         return time.time()
 
