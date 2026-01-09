@@ -1,7 +1,7 @@
 [project]
 name = "comfyui-qwenmultiangle"
 description = "A ComfyUI node for 3D camera angle control, outputs angle prompts for multi-angle image generation"
-version = "0.1.0"
+version = "0.1.1"
 license = { text = "MIT" }
 readme = "README.md"
 
