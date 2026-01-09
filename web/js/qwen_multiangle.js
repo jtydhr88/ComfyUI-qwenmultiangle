@@ -49,6 +49,10 @@ app.registerExtension({
                 this._viewerIframe = iframe;
                 this._viewerReady = false;
 
+                // Initialize default_prompts from widget
+                const defaultPromptsWidget = node.widgets.find(w => w.name === "default_prompts");
+                this._useDefaultPrompts = defaultPromptsWidget?.value || false;
+
                 // Message handler
                 const onMessage = (event) => {
                     if (event.source !== iframe.contentWindow) return;
