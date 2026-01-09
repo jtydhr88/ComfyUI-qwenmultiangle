@@ -90,6 +90,33 @@ export const VIEWER_HTML = `
         .param-value.zoom {
             color: #FFB800;
         }
+
+        #reset-btn {
+            position: absolute;
+            right: 8px;
+            bottom: 8px;
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            border: 1px solid rgba(233, 61, 130, 0.4);
+            background: rgba(10, 10, 15, 0.8);
+            color: #E93D82;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+
+        #reset-btn:hover {
+            background: rgba(233, 61, 130, 0.2);
+            border-color: #E93D82;
+        }
+
+        #reset-btn:active {
+            transform: scale(0.95);
+        }
     </style>
 </head>
 <body>
@@ -109,6 +136,7 @@ export const VIEWER_HTML = `
                 <div class="param-label">Zoom</div>
                 <div class="param-value zoom" id="z-value">5.0</div>
             </div>
+            <button id="reset-btn" title="Reset to defaults">↺</button>
         </div>
     </div>
 
@@ -119,7 +147,8 @@ export const VIEWER_HTML = `
             azimuth: 0,
             elevation: 0,
             distance: 5,
-            imageUrl: null
+            imageUrl: null,
+            useDefaultPrompts: false
         };
 
         let threeScene = null;
@@ -181,11 +210,64 @@ export const VIEWER_HTML = `
             return h_direction + ", " + v_direction + ", " + distance;
         }
 
+        function generateQwenPrompt() {
+            const h_angle = state.azimuth % 360;
+            const v_angle = state.elevation;
+
+            // Horizontal mapping
+            let h_direction;
+            if (h_angle < 22.5 || h_angle >= 337.5) {
+                h_direction = "front view";
+            } else if (h_angle < 67.5) {
+                h_direction = "front-right quarter view";
+            } else if (h_angle < 112.5) {
+                h_direction = "right side view";
+            } else if (h_angle < 157.5) {
+                h_direction = "back-right quarter view";
+            } else if (h_angle < 202.5) {
+                h_direction = "back view";
+            } else if (h_angle < 247.5) {
+                h_direction = "back-left quarter view";
+            } else if (h_angle < 292.5) {
+                h_direction = "left side view";
+            } else {
+                h_direction = "front-left quarter view";
+            }
+
+            // Vertical mapping for Qwen format
+            let v_direction;
+            if (v_angle < -15) {
+                v_direction = "low-angle shot";
+            } else if (v_angle < 15) {
+                v_direction = "eye-level shot";
+            } else if (v_angle < 75) {
+                v_direction = "elevated shot";
+            } else {
+                v_direction = "high-angle shot";
+            }
+
+            // Distance mapping
+            let distance;
+            if (state.distance < 2) {
+                distance = "wide shot";
+            } else if (state.distance < 6) {
+                distance = "medium shot";
+            } else {
+                distance = "close-up";
+            }
+
+            return h_direction + " " + v_direction + " " + distance;
+        }
+
         function updateDisplay() {
             hValueEl.textContent = Math.round(state.azimuth) + '°';
             vValueEl.textContent = Math.round(state.elevation) + '°';
             zValueEl.textContent = state.distance.toFixed(1);
-            promptPreviewEl.textContent = generatePromptPreview();
+            if (state.useDefaultPrompts) {
+                promptPreviewEl.textContent = generateQwenPrompt();
+            } else {
+                promptPreviewEl.textContent = generatePromptPreview();
+            }
         }
 
         function sendAngleUpdate() {
@@ -193,9 +275,25 @@ export const VIEWER_HTML = `
                 type: 'ANGLE_UPDATE',
                 horizontal: Math.round(state.azimuth),
                 vertical: Math.round(state.elevation),
-                zoom: Math.round(state.distance * 10) / 10
+                zoom: Math.round(state.distance * 10) / 10,
+                useDefaultPrompts: state.useDefaultPrompts || false
             }, '*');
         }
+
+        function resetToDefaults() {
+            state.azimuth = 0;
+            state.elevation = 0;
+            state.distance = 5.0;
+            state.useDefaultPrompts = false;
+            if (threeScene) {
+                threeScene.syncFromState();
+            }
+            updateDisplay();
+            sendAngleUpdate();
+        }
+
+        // Reset button handler
+        document.getElementById('reset-btn').addEventListener('click', resetToDefaults);
 
         function initThreeJS() {
             const width = container.clientWidth;
@@ -700,9 +798,11 @@ export const VIEWER_HTML = `
                 state.azimuth = data.horizontal || 0;
                 state.elevation = data.vertical || 0;
                 state.distance = data.zoom || 5;
+                state.useDefaultPrompts = data.useDefaultPrompts || false;
                 if (threeScene) {
                     threeScene.syncFromState();
                 }
+                updateDisplay();
             } else if (data.type === 'UPDATE_IMAGE') {
                 state.imageUrl = data.imageUrl;
                 if (threeScene) {
@@ -713,10 +813,14 @@ export const VIEWER_HTML = `
 
         // Initialize
         initThreeJS();
-        updateDisplay();
+        // updateDisplay() will be called after VIEWER_READY is sent
+        // to ensure threeScene is ready
 
         // Notify parent that we're ready
         window.parent.postMessage({ type: 'VIEWER_READY' }, '*');
+
+        // Update display after threeScene is ready
+        updateDisplay();
     </script>
 </body>
 </html>
