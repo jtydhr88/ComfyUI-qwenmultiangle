@@ -70,12 +70,14 @@ app.registerExtension({
                         const vWidget = node.widgets.find(w => w.name === "vertical_angle");
                         const zWidget = node.widgets.find(w => w.name === "zoom");
 
+                        const cameraViewWidget = node.widgets.find(w => w.name === "camera_view");
                         iframe.contentWindow.postMessage({
                             type: "INIT",
                             horizontal: hWidget?.value || 0,
                             vertical: vWidget?.value || 0,
                             zoom: zWidget?.value || 5.0,
-                            useDefaultPrompts: this._useDefaultPrompts || false
+                            useDefaultPrompts: this._useDefaultPrompts || false,
+                            cameraView: cameraViewWidget?.value || false
                         }, "*");
                     } else if (data.type === 'ANGLE_UPDATE') {
                         // Update node widgets from 3D view
@@ -137,13 +139,15 @@ app.registerExtension({
                     const vWidget = node.widgets.find(w => w.name === "vertical_angle");
                     const zWidget = node.widgets.find(w => w.name === "zoom");
                     const defaultPromptsWidget = node.widgets.find(w => w.name === "default_prompts");
+                    const cameraViewWidget = node.widgets.find(w => w.name === "camera_view");
 
                     iframe.contentWindow.postMessage({
                         type: "SYNC_ANGLES",
                         horizontal: hWidget?.value || 0,
                         vertical: vWidget?.value || 0,
                         zoom: zWidget?.value || 5.0,
-                        useDefaultPrompts: defaultPromptsWidget?.value || false
+                        useDefaultPrompts: defaultPromptsWidget?.value || false,
+                        cameraView: cameraViewWidget?.value || false
                     }, "*");
                 };
 
@@ -153,7 +157,7 @@ app.registerExtension({
                     if (origCallback) {
                         origCallback.apply(this, arguments);
                     }
-                    if (name === "horizontal_angle" || name === "vertical_angle" || name === "zoom" || name === "default_prompts") {
+                    if (name === "horizontal_angle" || name === "vertical_angle" || name === "zoom" || name === "default_prompts" || name === "camera_view") {
                         if (name === "default_prompts") {
                             this._useDefaultPrompts = value;
                         }

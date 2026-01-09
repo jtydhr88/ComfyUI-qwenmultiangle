@@ -303,15 +303,23 @@ export const VIEWER_HTML = `
             const scene = new THREE.Scene();
             scene.background = new THREE.Color(0x0a0a0f);
 
-            // Camera
+            // Camera (default overview camera)
             const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
             camera.position.set(4, 3.5, 4);
             camera.lookAt(0, 0.3, 0);
+
+            // Preview camera (placed at camera indicator position, looking at image)
+            const previewCamera = new THREE.PerspectiveCamera(50, width / height, 0.1, 100);
+
+            // Camera view state
+            let useCameraView = false;
+            let activeCamera = camera;
 
             // Renderer
             const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(width, height);
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.outputEncoding = THREE.sRGBEncoding;
             container.appendChild(renderer.domElement);
 
             // Lighting
@@ -342,18 +350,59 @@ export const VIEWER_HTML = `
             let liveElevation = state.elevation;
             let liveDistance = state.distance;
 
-            // Subject (Image Plane)
-            const planeGeo = new THREE.PlaneGeometry(1.2, 1.2);
-            const planeMat = new THREE.MeshBasicMaterial({
-                color: 0x3a3a4a,
-                side: THREE.DoubleSide
-            });
-            const imagePlane = new THREE.Mesh(planeGeo, planeMat);
+            // Subject (Image Card) - Like a playing card with front image and back grid
+            const cardThickness = 0.02;
+            const cardGeo = new THREE.BoxGeometry(1.2, 1.2, cardThickness);
+
+            // Create grid texture for card back using canvas
+            function createGridTexture() {
+                const canvas = document.createElement('canvas');
+                const size = 256;
+                canvas.width = size;
+                canvas.height = size;
+                const ctx = canvas.getContext('2d');
+
+                // Background
+                ctx.fillStyle = '#1a1a2a';
+                ctx.fillRect(0, 0, size, size);
+
+                // Grid lines
+                ctx.strokeStyle = '#2a2a3a';
+                ctx.lineWidth = 1;
+                const gridSize = 16;
+                for (let i = 0; i <= size; i += gridSize) {
+                    ctx.beginPath();
+                    ctx.moveTo(i, 0);
+                    ctx.lineTo(i, size);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(0, i);
+                    ctx.lineTo(size, i);
+                    ctx.stroke();
+                }
+
+                const texture = new THREE.CanvasTexture(canvas);
+                texture.wrapS = THREE.RepeatWrapping;
+                texture.wrapT = THREE.RepeatWrapping;
+                texture.repeat.set(4, 4);
+                return texture;
+            }
+
+            // Materials: [+X right, -X left, +Y top, -Y bottom, +Z front, -Z back]
+            const frontMat = new THREE.MeshBasicMaterial({ color: 0x3a3a4a }); // Front - will show image
+            const backMat = new THREE.MeshBasicMaterial({ map: createGridTexture() });  // Back - grid pattern
+            const edgeMat = new THREE.MeshBasicMaterial({ color: 0x1a1a2a });  // Edges - darker
+
+            const cardMaterials = [edgeMat, edgeMat, edgeMat, edgeMat, frontMat, backMat];
+            const imagePlane = new THREE.Mesh(cardGeo, cardMaterials);
             imagePlane.position.copy(CENTER);
             scene.add(imagePlane);
 
+            // Keep reference to front material for image updates
+            const planeMat = frontMat;
+
             // Frame
-            const frameGeo = new THREE.EdgesGeometry(planeGeo);
+            const frameGeo = new THREE.EdgesGeometry(cardGeo);
             const frameMat = new THREE.LineBasicMaterial({ color: 0xE93D82 });
             const imageFrame = new THREE.LineSegments(frameGeo, frameMat);
             imageFrame.position.copy(CENTER);
@@ -543,6 +592,10 @@ export const VIEWER_HTML = `
                 // Distance line
                 updateDistanceLine(CENTER.clone(), cameraIndicator.position.clone());
 
+                // Update orthographic camera position and orientation
+                previewCamera.position.copy(cameraIndicator.position);
+                previewCamera.lookAt(CENTER);
+
                 // Animate glow ring
                 glowRing.rotation.z += 0.005;
             }
@@ -713,9 +766,49 @@ export const VIEWER_HTML = `
                 camGlow.scale.setScalar(pulse);
                 glowRing.rotation.z += 0.003;
 
-                renderer.render(scene, camera);
+                renderer.render(scene, activeCamera);
             }
             animate();
+
+            // Camera view control function (called from message handler)
+            function setCameraView(enabled) {
+                useCameraView = enabled;
+                if (useCameraView) {
+                    activeCamera = previewCamera;
+                    // Hide control elements in camera view
+                    azimuthRing.visible = false;
+                    azimuthHandle.visible = false;
+                    azGlow.visible = false;
+                    elevationArc.visible = false;
+                    elevationHandle.visible = false;
+                    elGlow.visible = false;
+                    distanceHandle.visible = false;
+                    distGlow.visible = false;
+                    if (distanceTube) distanceTube.visible = false;
+                    cameraIndicator.visible = false;
+                    camGlow.visible = false;
+                    glowRing.visible = false;
+                    gridHelper.visible = false;
+                    imageFrame.visible = false;
+                } else {
+                    activeCamera = camera;
+                    // Show control elements
+                    azimuthRing.visible = true;
+                    azimuthHandle.visible = true;
+                    azGlow.visible = true;
+                    elevationArc.visible = true;
+                    elevationHandle.visible = true;
+                    elGlow.visible = true;
+                    distanceHandle.visible = true;
+                    distGlow.visible = true;
+                    if (distanceTube) distanceTube.visible = true;
+                    cameraIndicator.visible = true;
+                    camGlow.visible = true;
+                    glowRing.visible = true;
+                    gridHelper.visible = true;
+                    imageFrame.visible = true;
+                }
+            }
 
             // Resize
             function onResize() {
@@ -723,6 +816,9 @@ export const VIEWER_HTML = `
                 const h = container.clientHeight;
                 camera.aspect = w / h;
                 camera.updateProjectionMatrix();
+                // Update preview camera
+                previewCamera.aspect = w / h;
+                previewCamera.updateProjectionMatrix();
                 renderer.setSize(w, h);
             }
             window.addEventListener('resize', onResize);
@@ -736,6 +832,7 @@ export const VIEWER_HTML = `
                     updateVisuals();
                     updateDisplay();
                 },
+                setCameraView: setCameraView,
                 updateImage: (url) => {
                     if (url) {
                         const img = new Image();
@@ -793,6 +890,7 @@ export const VIEWER_HTML = `
                 state.distance = data.zoom || 5;
                 if (threeScene) {
                     threeScene.syncFromState();
+                    threeScene.setCameraView(data.cameraView || false);
                 }
             } else if (data.type === 'SYNC_ANGLES') {
                 state.azimuth = data.horizontal || 0;
@@ -801,6 +899,7 @@ export const VIEWER_HTML = `
                 state.useDefaultPrompts = data.useDefaultPrompts || false;
                 if (threeScene) {
                     threeScene.syncFromState();
+                    threeScene.setCameraView(data.cameraView || false);
                 }
                 updateDisplay();
             } else if (data.type === 'UPDATE_IMAGE') {

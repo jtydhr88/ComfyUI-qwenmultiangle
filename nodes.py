@@ -50,6 +50,10 @@ class QwenMultiangleCameraNode:
                     "default": False,
                     "display": "checkbox"
                 }),
+                "camera_view": ("BOOLEAN", {
+                    "default": False,
+                    "display": "checkbox"
+                }),
             },
             "optional": {
                 "image": ("IMAGE",),
@@ -87,7 +91,7 @@ class QwenMultiangleCameraNode:
         except Exception:
             return str(hash(str(image)))
 
-    def generate_prompt(self, horizontal_angle, vertical_angle, zoom, default_prompts=False, image=None, unique_id=None):
+    def generate_prompt(self, horizontal_angle, vertical_angle, zoom, default_prompts=False, camera_view=False, image=None, unique_id=None):
         # Validate input ranges
         horizontal_angle = max(0, min(360, int(horizontal_angle)))
         vertical_angle = max(-30, min(90, int(vertical_angle)))
@@ -250,7 +254,7 @@ class QwenMultiangleCameraNode:
         return result
 
     @classmethod
-    def IS_CHANGED(cls, horizontal_angle, vertical_angle, zoom, default_prompts=False, image=None, unique_id=None):
+    def IS_CHANGED(cls, horizontal_angle, vertical_angle, zoom, default_prompts=False, camera_view=False, image=None, unique_id=None):
         # Return a hash of inputs so node only re-runs when inputs actually change
         try:
             img_hash = ""

@@ -8,8 +8,10 @@ A ComfyUI custom node for 3D camera angle control. Provides an interactive Three
   - Horizontal angle (azimuth): 0° - 360°
   - Vertical angle (elevation): -30° to 90°
   - Zoom level: 0 - 10
-- **Real-time Preview** - Connect an image input to see it displayed in the 3D scene
-- **Prompt Output** - Outputs descriptive camera angle prompts like `"front view, eye level, medium shot (horizontal: 0, vertical: 0, zoom: 5.0)"`
+- **Real-time Preview** - Connect an image input to see it displayed in the 3D scene as a card with proper color rendering
+- **Camera View Mode** - Toggle `camera_view` to preview the scene from the camera indicator's perspective
+- **Prompt Output** - Outputs descriptive camera angle prompts
+- **Default Prompts** - Toggle `default_prompts` to switch between detailed and Qwen-style prompt formats
 - **Bidirectional Sync** - Slider widgets and 3D handles stay synchronized
 
 ## Installation
@@ -35,9 +37,21 @@ A ComfyUI custom node for 3D camera angle control. Provides an interactive Three
 3. Adjust camera angles by:
    - Dragging the colored handles in the 3D viewport
    - Using the slider widgets
-4. The node outputs a prompt string describing the camera angle
+4. Toggle `camera_view` to see the preview from the camera's perspective
+5. Toggle `default_prompts` to use Qwen-style prompt format
+6. The node outputs a prompt string describing the camera angle
 
-### Controls
+### Widgets
+
+| Widget | Type | Description |
+|--------|------|-------------|
+| horizontal_angle | Slider | Camera azimuth angle (0° - 360°) |
+| vertical_angle | Slider | Camera elevation angle (-30° to 90°) |
+| zoom | Slider | Camera distance/zoom level (0 - 10) |
+| default_prompts | Checkbox | Use Qwen-style prompt format |
+| camera_view | Checkbox | Preview scene from camera's perspective |
+
+### 3D Viewport Controls
 
 | Handle | Color | Control |
 |--------|-------|---------|
@@ -45,16 +59,23 @@ A ComfyUI custom node for 3D camera angle control. Provides an interactive Three
 | Arc handle | Cyan | Vertical angle (elevation) |
 | Line handle | Gold | Zoom/distance |
 
+The image preview displays as a card - front shows the image, back shows a grid pattern when viewed from behind.
+
 ### Output Prompt Format
 
+**Default format:**
 ```
 {direction}, {elevation}, {shot_type} (horizontal: {h}°, vertical: {v}°, zoom: {z})
 ```
 
+**Qwen format (default_prompts enabled):**
+```
+{direction} {elevation} {shot_type}
+```
+
 Examples:
-- `front view, eye level, medium shot (horizontal: 0, vertical: 0, zoom: 5.0)`
-- `right side view, high angle, close-up (horizontal: 90, vertical: 45, zoom: 8.5)`
-- `back view, bird's eye view, wide shot (horizontal: 180, vertical: 75, zoom: 1.0)`
+- Default: `front view, eye level, medium shot (horizontal: 0, vertical: 0, zoom: 5.0)`
+- Qwen: `front view eye-level shot medium shot`
 
 ## Credits
 
