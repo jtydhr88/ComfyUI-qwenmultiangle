@@ -21241,11 +21241,21 @@ class CameraWidget {
     }
   }
   dispose() {
-    if (this.animationId) {
-      cancelAnimationFrame(this.animationId);
+    if (this.animationId !== null) {
+      try {
+        window.cancelAnimationFrame(this.animationId);
+      } catch {
+      }
+      this.animationId = null;
     }
-    this.renderer.dispose();
-    this.scene.clear();
+    try {
+      this.renderer.dispose();
+    } catch {
+    }
+    try {
+      this.scene.clear();
+    } catch {
+    }
   }
 }
 const widgetInstances = /* @__PURE__ */ new Map();

@@ -994,10 +994,26 @@ export class CameraWidget {
   }
 
   public dispose(): void {
-    if (this.animationId) {
-      cancelAnimationFrame(this.animationId)
+    if (this.animationId !== null) {
+      try {
+        window.cancelAnimationFrame(this.animationId)
+      } catch {
+        // Ignore errors
+      }
+      this.animationId = null
     }
-    this.renderer.dispose()
-    this.scene.clear()
+
+    // Wrap in try-catch to handle Firefox compatibility issues with cancelAnimationFrame
+    try {
+      this.renderer.dispose()
+    } catch {
+      // Ignore errors - Firefox may throw on context.cancelAnimationFrame
+    }
+
+    try {
+      this.scene.clear()
+    } catch {
+      // Ignore errors
+    }
   }
 }
