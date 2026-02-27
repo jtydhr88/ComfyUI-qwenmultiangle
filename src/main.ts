@@ -1,5 +1,8 @@
-import { app } from '../../../scripts/app.js'
-import { api } from '../../../scripts/api.js'
+// import { app } from '../../../scripts/app.js'
+// import { api } from '../../../scripts/api.js'
+const { app } = window.comfyAPI.app
+const { api } = window.comfyAPI.api
+
 import { CameraWidget } from './CameraWidget'
 import type { CameraState, QwenMultiangleNode, DOMWidget } from './types'
 
