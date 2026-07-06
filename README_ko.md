@@ -19,6 +19,7 @@
 - **프롬프트 출력** - [Qwen-Image-Edit-2511-Multiple-Angles-LoRA](https://huggingface.co/fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA)와 호환되는 포맷된 프롬프트 출력
 - **양방향 동기화** - 슬라이더 위젯, 3D 핸들 및 드롭다운이 동기화 유지
 - **다국어 지원** - UI 라벨은 영어, 중국어, 일본어 및 한국어로 제공 (ComfyUI 설정에서 자동 감지)
+- **카메라 프롬프트 번역** - 선택적 동반 노드(**Qwen Multiangle Camera Translate**)가 카메라 용어를 중국어, 일본어 또는 한국어로 번역하여 영어가 아닌 기본 프롬프트와 일치시킵니다
 
 ## 설치
 
@@ -181,6 +182,55 @@ UI 언어에 관계없이 출력 프롬프트는 항상 영어입니다.
 | 방위각 | `front view`, `front-right quarter view`, `right side view`, `back-right quarter view`, `back view`, `back-left quarter view`, `left side view`, `front-left quarter view` |
 | 앙각 | `low-angle shot` (-30°), `eye-level shot` (0°), `elevated shot` (30°), `high-angle shot` (60°) |
 | 거리 | `close-up`, `medium shot`, `wide shot` |
+
+## 카메라 프롬프트 번역 노드
+
+카메라 노드는 항상 용어를 **영어**로 출력합니다. 기본 프롬프트가 다른 언어(예: 중국어)로 작성된 경우, 영어 카메라 용어를 추가하면 카메라 효과가 약해지거나 완전히 작동하지 않을 수 있습니다. 모델이 주변 언어와 일치하지 않는 지시를 무시하는 경향이 있기 때문입니다.
+
+**Qwen Multiangle Camera Translate** 노드가 이를 해결합니다. 프롬프트 문자열을 받아 수동으로 관리되는 용어집을 사용하여 카메라/샷 용어*만* 대상 언어로 번역합니다. 나머지 부분 — 기본 프롬프트, `<sks>` 토큰, 문장 부호 — 은 그대로 통과합니다.
+
+이것은 의도적으로 **독립된** 노드입니다. 원래 카메라 노드는 변경되지 않으므로 기존 워크플로우는 이전과 똑같이 작동합니다. 필요할 때만 번역 노드를 추가하세요.
+
+### 사용 방법
+
+1. `image/multiangle` 카테고리에서 **Qwen Multiangle Camera Translate** 노드를 추가합니다
+2. **Qwen Multiangle Camera**의 `prompt` 출력을 해당 `prompt` 입력에 연결합니다 (또는 텍스트를 직접 붙여넣습니다)
+3. **대상 언어**를 선택합니다
+4. 번역된 출력을 텍스트 인코더에 전달합니다
+
+일반적인 연결: `Qwen Multiangle Camera → Qwen Multiangle Camera Translate → CLIP Text Encode`
+
+### 입력 / 출력
+
+| 포트 | 유형 | 설명 |
+|------|------|------|
+| prompt (입력) | String | 카메라 용어를 포함한 프롬프트 (카메라 노드에서 연결하거나 텍스트 붙여넣기) |
+| target_language | 드롭다운 | 카메라 용어의 대상 언어 |
+| prompt (출력) | String | 카메라 용어가 번역된 프롬프트 |
+
+### 대상 언어
+
+이 README가 제공하는 언어와 일치합니다:
+
+| 옵션 | 동작 |
+|------|------|
+| 中文 (Chinese) | 카메라 용어를 중국어로 번역 |
+| 日本語 (Japanese) | 카메라 용어를 일본어로 번역 |
+| 한국어 (Korean) | 카메라 용어를 한국어로 번역 |
+| English | 패스스루 (변경 없음) |
+
+용어집에 있는 문구만 번역됩니다. 인식되지 않는 단어는 그대로 통과합니다. 용어집은 `camera_glossary.py`에 있으며 `src/i18n.ts`의 UI 번역과 동기화되어 있어 수동으로 확장하거나 편집하기 쉽습니다.
+
+### 예시
+
+동일한 카메라 포즈(`front view` / `eye-level shot` / `medium shot`)를 각 대상 언어로 출력한 경우:
+
+| 대상 | 출력 |
+|------|------|
+| English | `<sks> front view eye-level shot medium shot` |
+| 中文 | `<sks> 正面视角 平视 中景` |
+| 日本語 | `<sks> 正面 アイレベル ミディアムショット` |
+| 한국어 | `<sks> 정면 아이 레벨 미디엄 샷` |
 
 ## 크레딧
 

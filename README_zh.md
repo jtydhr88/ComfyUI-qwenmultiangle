@@ -19,6 +19,7 @@
 - **提示词输出** - 输出与 [Qwen-Image-Edit-2511-Multiple-Angles-LoRA](https://huggingface.co/fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA) 兼容的格式化提示词
 - **双向同步** - 滑块组件、3D 手柄和下拉菜单保持同步
 - **多语言支持** - UI 标签支持英语、中文、日语和韩语（根据 ComfyUI 设置自动检测）
+- **相机提示词翻译** - 可选的配套节点（**Qwen Multiangle Camera Translate**）将相机术语翻译成中文、日语或韩语，使其与非英语的基础提示词保持一致
 
 ## 安装
 
@@ -181,6 +182,55 @@ UI 标签会根据你的 ComfyUI 语言设置自动翻译：
 | 方位角 | `front view`、`front-right quarter view`、`right side view`、`back-right quarter view`、`back view`、`back-left quarter view`、`left side view`、`front-left quarter view` |
 | 仰角 | `low-angle shot` (-30°)、`eye-level shot` (0°)、`elevated shot` (30°)、`high-angle shot` (60°) |
 | 距离 | `close-up`、`medium shot`、`wide shot` |
+
+## 相机提示词翻译节点
+
+相机节点始终输出**英语**术语。当你的基础提示词使用其他语言（例如中文）时，附加英语相机术语可能会削弱甚至完全破坏相机效果，因为模型往往会忽略与上下文语言不匹配的指令。
+
+**Qwen Multiangle Camera Translate** 节点用于解决这个问题。它接收一段提示词字符串，*只*把相机/镜头术语通过手动维护的词表翻译成目标语言。其余部分——你的基础提示词、`<sks>` token、标点——都原样保留。
+
+这是**独立**的节点，是有意为之：原相机节点保持不变，现有工作流照常运行。只在需要时再加上翻译节点即可。
+
+### 使用方法
+
+1. 从 `image/multiangle` 类别添加 **Qwen Multiangle Camera Translate** 节点
+2. 将 **Qwen Multiangle Camera** 的 `prompt` 输出连到它的 `prompt` 输入（也可以直接粘贴文本）
+3. 选择**目标语言**
+4. 将翻译后的输出接入文本编码器
+
+典型连接方式：`Qwen Multiangle Camera → Qwen Multiangle Camera Translate → CLIP Text Encode`
+
+### 输入 / 输出
+
+| 端口 | 类型 | 描述 |
+|------|------|------|
+| prompt（输入） | String | 包含相机术语的提示词（从相机节点连线，或粘贴文本） |
+| target_language | 下拉菜单 | 相机术语的目标语言 |
+| prompt（输出） | String | 相机术语已翻译的提示词 |
+
+### 目标语言
+
+与本 README 提供的语言一致：
+
+| 选项 | 行为 |
+|------|------|
+| 中文 (Chinese) | 将相机术语翻译成中文 |
+| 日本語 (Japanese) | 将相机术语翻译成日语 |
+| 한국어 (Korean) | 将相机术语翻译成韩语 |
+| English | 原样透传（不变） |
+
+只有词表中存在的短语才会被翻译；任何未识别的词都会原样放行。词表位于 `camera_glossary.py`，并与 `src/i18n.ts` 中的 UI 翻译保持同步，便于手动扩展或修改。
+
+### 示例
+
+同一相机姿态（`front view` / `eye-level shot` / `medium shot`）在各目标语言下的输出：
+
+| 目标 | 输出 |
+|------|------|
+| English | `<sks> front view eye-level shot medium shot` |
+| 中文 | `<sks> 正面视角 平视 中景` |
+| 日本語 | `<sks> 正面 アイレベル ミディアムショット` |
+| 한국어 | `<sks> 정면 아이 레벨 미디엄 샷` |
 
 ## 致谢
 

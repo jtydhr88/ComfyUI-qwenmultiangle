@@ -17,6 +17,12 @@ from comfy_api.latest._io import _UIOutput, FolderType
 from comfy_api.latest._ui import ImageSaveHelper, SavedResult
 from typing_extensions import override
 
+from .camera_glossary import (
+    TARGET_LANGUAGE_OPTIONS,
+    label_to_code,
+    translate_camera_terms,
+)
+
 
 # Must match CameraWidget.ts — keep in sync so camera_info describes the preview camera.
 _SCENE_CENTER_Y = 0.5
@@ -201,10 +207,57 @@ class QwenMultiangleCameraNode(io.ComfyNode):
         return "_".join(parts)
 
 
+class QwenMultiangleCameraTranslateNode(io.ComfyNode):
+
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="QwenMultiangleCameraTranslateNode",
+            display_name="Qwen Multiangle Camera Translate",
+            category="image/multiangle",
+            description=(
+                "Translate camera/shot terms in a prompt to a target language "
+                "via a maintained glossary; non-camera words pass through."
+            ),
+            inputs=[
+                io.String.Input(
+                    "prompt",
+                    multiline=True,
+                    default="",
+                    display_name="Prompt",
+                    tooltip="Prompt text containing camera terms to translate (link from the camera node, or paste text)",
+                ),
+                io.Combo.Input(
+                    "target_language",
+                    options=TARGET_LANGUAGE_OPTIONS,
+                    default=TARGET_LANGUAGE_OPTIONS[0],
+                    display_name="Target Language",
+                    tooltip=(
+                        "Language to translate camera terms into. Only glossary "
+                        "phrases are translated; everything else is untouched. "
+                        "Select English for a pass-through."
+                    ),
+                ),
+            ],
+            outputs=[
+                io.String.Output("prompt", display_name="Prompt"),
+            ],
+        )
+
+    @classmethod
+    def execute(cls, prompt, target_language) -> io.NodeOutput:
+        lang_code = label_to_code(target_language)
+        translated = translate_camera_terms(prompt or "", lang_code)
+        return io.NodeOutput(translated)
+
+
 class QwenMultiangleExtension(ComfyExtension):
     @override
     async def get_node_list(self):
-        return [QwenMultiangleCameraNode]
+        return [
+            QwenMultiangleCameraNode,
+            QwenMultiangleCameraTranslateNode,
+        ]
 
 
 async def comfy_entrypoint():

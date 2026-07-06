@@ -19,6 +19,7 @@
 - **プロンプト出力** - [Qwen-Image-Edit-2511-Multiple-Angles-LoRA](https://huggingface.co/fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA)と互換性のあるフォーマット済みプロンプトを出力
 - **双方向同期** - スライダーウィジェット、3Dハンドル、ドロップダウンが同期を維持
 - **多言語サポート** - UIラベルは英語、中国語、日本語、韓国語で利用可能（ComfyUI設定から自動検出）
+- **カメラプロンプト翻訳** - オプションのコンパニオンノード（**Qwen Multiangle Camera Translate**）がカメラ用語を中国語・日本語・韓国語に翻訳し、英語以外のベースプロンプトと一致させます
 
 ## インストール
 
@@ -181,6 +182,55 @@ UI言語に関係なく、出力プロンプトは常に英語です。
 | アジマス | `front view`、`front-right quarter view`、`right side view`、`back-right quarter view`、`back view`、`back-left quarter view`、`left side view`、`front-left quarter view` |
 | エレベーション | `low-angle shot` (-30°)、`eye-level shot` (0°)、`elevated shot` (30°)、`high-angle shot` (60°) |
 | 距離 | `close-up`、`medium shot`、`wide shot` |
+
+## カメラプロンプト翻訳ノード
+
+カメラノードは常に用語を**英語**で出力します。ベースプロンプトが他の言語（例えば中国語）で書かれている場合、英語のカメラ用語を追加するとカメラ効果が弱まったり、完全に機能しなくなったりすることがあります。モデルは周囲の言語と一致しない指示を無視する傾向があるためです。
+
+**Qwen Multiangle Camera Translate** ノードはこれを解決します。プロンプト文字列を受け取り、手動でメンテナンスされた用語集を使って、カメラ／ショット用語*のみ*を対象言語に翻訳します。それ以外の部分——ベースプロンプト、`<sks>` トークン、句読点——はそのまま通過します。
+
+これは意図的に**独立した**ノードです。元のカメラノードは変更されていないため、既存のワークフローはこれまでと同じように動作します。必要なときだけ翻訳ノードを追加してください。
+
+### 使用方法
+
+1. `image/multiangle` カテゴリから **Qwen Multiangle Camera Translate** ノードを追加します
+2. **Qwen Multiangle Camera** の `prompt` 出力をその `prompt` 入力に接続します（またはテキストを直接貼り付けます）
+3. **ターゲット言語**を選択します
+4. 翻訳された出力をテキストエンコーダーに渡します
+
+一般的な接続：`Qwen Multiangle Camera → Qwen Multiangle Camera Translate → CLIP Text Encode`
+
+### 入力 / 出力
+
+| ポート | タイプ | 説明 |
+|--------|--------|------|
+| prompt（入力） | String | カメラ用語を含むプロンプト（カメラノードから接続、またはテキストを貼り付け） |
+| target_language | ドロップダウン | カメラ用語のターゲット言語 |
+| prompt（出力） | String | カメラ用語が翻訳されたプロンプト |
+
+### ターゲット言語
+
+このREADMEが提供する言語と一致します：
+
+| オプション | 動作 |
+|-----------|------|
+| 中文 (Chinese) | カメラ用語を中国語に翻訳 |
+| 日本語 (Japanese) | カメラ用語を日本語に翻訳 |
+| 한국어 (Korean) | カメラ用語を韓国語に翻訳 |
+| English | パススルー（変更なし） |
+
+用語集に存在するフレーズのみが翻訳されます。認識されない単語はそのまま通過します。用語集は `camera_glossary.py` にあり、`src/i18n.ts` のUI翻訳と同期されているため、手動での拡張や編集が簡単です。
+
+### 例
+
+同じカメラ姿勢（`front view` / `eye-level shot` / `medium shot`）を各ターゲット言語で出力した場合：
+
+| ターゲット | 出力 |
+|-----------|------|
+| English | `<sks> front view eye-level shot medium shot` |
+| 中文 | `<sks> 正面视角 平视 中景` |
+| 日本語 | `<sks> 正面 アイレベル ミディアムショット` |
+| 한국어 | `<sks> 정면 아이 레벨 미디엄 샷` |
 
 ## クレジット
 

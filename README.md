@@ -19,6 +19,7 @@ A ComfyUI custom node for 3D camera angle control. Provides an interactive Three
 - **Prompt Output** - Outputs formatted prompts compatible with [Qwen-Image-Edit-2511-Multiple-Angles-LoRA](https://huggingface.co/fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA)
 - **Bidirectional Sync** - Slider widgets, 3D handles, and dropdowns stay synchronized
 - **Multi-language Support** - UI labels available in English, Chinese, Japanese, and Korean (auto-detected from ComfyUI settings)
+- **Camera Prompt Translation** - Optional companion node (**Qwen Multiangle Camera Translate**) translates the camera terms into Chinese, Japanese, or Korean so they match a non-English base prompt
 
 ## Installation
 
@@ -181,6 +182,55 @@ Examples:
 | Azimuth | `front view`, `front-right quarter view`, `right side view`, `back-right quarter view`, `back view`, `back-left quarter view`, `left side view`, `front-left quarter view` |
 | Elevation | `low-angle shot` (-30°), `eye-level shot` (0°), `elevated shot` (30°), `high-angle shot` (60°) |
 | Distance | `close-up`, `medium shot`, `wide shot` |
+
+## Camera Prompt Translate Node
+
+The camera node always outputs its terms in **English**. When your base prompt is written in another language (for example Chinese), appending English camera terms can weaken or completely break the camera effect, because the model tends to ignore instructions that don't match the surrounding language.
+
+The **Qwen Multiangle Camera Translate** node solves this. It takes a prompt string and translates *only* the camera / shot vocabulary into a target language using a hand-maintained glossary. Everything else — your base prompt, the `<sks>` token, punctuation — passes through untouched.
+
+This is a **separate** node on purpose: the original camera node is unchanged, so existing workflows keep working exactly as before. Add the translate node only when you need it.
+
+### Usage
+
+1. Add the **Qwen Multiangle Camera Translate** node from the `image/multiangle` category
+2. Link the `prompt` output of **Qwen Multiangle Camera** into its `prompt` input (or paste text directly)
+3. Choose a **Target Language**
+4. Feed the translated output into your text encoder
+
+Typical connection: `Qwen Multiangle Camera → Qwen Multiangle Camera Translate → CLIP Text Encode`
+
+### Inputs / Outputs
+
+| Port | Type | Description |
+|------|------|-------------|
+| prompt (input) | String | Prompt containing camera terms (link from the camera node, or paste text) |
+| target_language | Dropdown | Target language for the camera terms |
+| prompt (output) | String | Prompt with camera terms translated |
+
+### Target Languages
+
+Matches the languages this README ships in:
+
+| Option | Behavior |
+|--------|----------|
+| 中文 (Chinese) | Translate camera terms to Chinese |
+| 日本語 (Japanese) | Translate camera terms to Japanese |
+| 한국어 (Korean) | Translate camera terms to Korean |
+| English | Pass-through (no change) |
+
+Only phrases present in the glossary are translated; any unrecognized word passes through unchanged. The glossary lives in `camera_glossary.py` and is kept in sync with the UI translations in `src/i18n.ts`, so it is easy to extend or edit by hand.
+
+### Example
+
+The same camera pose (`front view` / `eye-level shot` / `medium shot`) in each target language:
+
+| Target | Output |
+|--------|--------|
+| English | `<sks> front view eye-level shot medium shot` |
+| 中文 | `<sks> 正面视角 平视 中景` |
+| 日本語 | `<sks> 正面 アイレベル ミディアムショット` |
+| 한국어 | `<sks> 정면 아이 레벨 미디엄 샷` |
 
 ## Credits
 
