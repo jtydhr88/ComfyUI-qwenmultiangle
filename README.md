@@ -108,6 +108,7 @@ ComfyUI-qwenmultiangle/
 | zoom | Slider | Camera distance/zoom level (0 - 10) |
 | default_prompts | Checkbox | **Deprecated** - Kept for backward compatibility only, has no effect |
 | camera_view | Checkbox | Preview scene from camera's perspective |
+| output_format | Combo | Select `Qwen Image Edit Multiple Angles` (default) or `JoyAI Image` prompt format |
 
 ### 3D Viewport Controls
 
@@ -164,6 +165,10 @@ The output prompt is always in English regardless of the UI language.
 
 ### Output Prompt Format
 
+Use `output_format` to select either `Qwen Image Edit Multiple Angles` or `JoyAI Image`.
+
+#### Qwen Image Edit Multiple Angles
+
 The node outputs prompts in the format required by [Qwen-Image-Edit-2511-Multiple-Angles-LoRA](https://huggingface.co/fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA):
 
 ```
@@ -182,6 +187,24 @@ Examples:
 | Azimuth | `front view`, `front-right quarter view`, `right side view`, `back-right quarter view`, `back view`, `back-left quarter view`, `left side view`, `front-left quarter view` |
 | Elevation | `low-angle shot` (-30°), `eye-level shot` (0°), `elevated shot` (30°), `high-angle shot` (60°) |
 | Distance | `close-up`, `medium shot`, `wide shot` |
+
+#### JoyAI Image
+
+`JoyAI Image` uses the official [JoyAI-Image camera-control prompt format](https://github.com/jd-opensource/JoyAI-Image#33-camera-control):
+
+```
+Move the camera.
+- Camera rotation: Yaw -90°, Pitch -30°.
+- Camera zoom: out.
+- Keep the 3D scene static; only change the viewpoint.
+```
+
+- The input image is treated as the reference viewpoint at 0°.
+- Horizontal angles 0°-180° are used directly as Yaw; 181°-359° wrap to negative angles, and 360° becomes 0°.
+- The vertical angle is used directly as Pitch.
+- This node maps its numeric zoom control to JoyAI's relative operations: values below 2 produce `out`, values from 2 up to (but not including) 6 produce `unchanged`, and values of 6 or above produce `in`. This is a practical conversion by this node, not an official numeric JoyAI mapping. The default zoom value of 5 produces `unchanged`.
+
+The **Qwen Multiangle Camera Translate** node is intended for Qwen camera/shot vocabulary and does not support the JoyAI prompt format.
 
 ## Camera Prompt Translate Node
 
