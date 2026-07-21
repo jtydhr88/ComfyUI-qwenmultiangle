@@ -27,6 +27,70 @@ from .camera_glossary import (
 # Must match CameraWidget.ts — keep in sync so camera_info describes the preview camera.
 _SCENE_CENTER_Y = 0.5
 
+QWEN_OUTPUT_FORMAT = "Qwen Image Edit Multiple Angles"
+JOYAI_OUTPUT_FORMAT = "JoyAI Image"
+OUTPUT_FORMAT_OPTIONS = [QWEN_OUTPUT_FORMAT, JOYAI_OUTPUT_FORMAT]
+
+
+def build_qwen_prompt(horizontal_angle: int, vertical_angle: int, zoom: float) -> str:
+    h_angle = horizontal_angle % 360
+
+    if h_angle < 22.5 or h_angle >= 337.5:
+        h_direction = "front view"
+    elif h_angle < 67.5:
+        h_direction = "front-right quarter view"
+    elif h_angle < 112.5:
+        h_direction = "right side view"
+    elif h_angle < 157.5:
+        h_direction = "back-right quarter view"
+    elif h_angle < 202.5:
+        h_direction = "back view"
+    elif h_angle < 247.5:
+        h_direction = "back-left quarter view"
+    elif h_angle < 292.5:
+        h_direction = "left side view"
+    else:
+        h_direction = "front-left quarter view"
+
+    if vertical_angle < -15:
+        v_direction = "low-angle shot"
+    elif vertical_angle < 15:
+        v_direction = "eye-level shot"
+    elif vertical_angle < 45:
+        v_direction = "elevated shot"
+    else:
+        v_direction = "high-angle shot"
+
+    if zoom < 2:
+        distance = "wide shot"
+    elif zoom < 6:
+        distance = "medium shot"
+    else:
+        distance = "close-up"
+
+    return f"<sks> {h_direction} {v_direction} {distance}"
+
+
+def build_joyai_prompt(horizontal_angle: int, vertical_angle: int, zoom: float) -> str:
+    h_angle = horizontal_angle % 360
+    yaw = h_angle if h_angle <= 180 else h_angle - 360
+
+    # Practical mapping from this node's target-distance control to JoyAI's
+    # relative zoom operation; JoyAI does not define a numeric zoom scale.
+    if zoom < 2:
+        zoom_operation = "out"
+    elif zoom < 6:
+        zoom_operation = "unchanged"
+    else:
+        zoom_operation = "in"
+
+    return (
+        "Move the camera.\n"
+        f"- Camera rotation: Yaw {yaw}°, Pitch {vertical_angle}°.\n"
+        f"- Camera zoom: {zoom_operation}.\n"
+        "- Keep the 3D scene static; only change the viewpoint."
+    )
+
 
 def _build_camera_info(horizontal_angle: int, vertical_angle: int, zoom: float) -> dict:
     az_rad = math.radians(horizontal_angle)
@@ -102,6 +166,13 @@ class QwenMultiangleCameraNode(io.ComfyNode):
                     display_name="Camera View",
                     tooltip="Toggle camera perspective preview",
                 ),
+                io.Combo.Input(
+                    "output_format",
+                    options=OUTPUT_FORMAT_OPTIONS,
+                    default=QWEN_OUTPUT_FORMAT,
+                    display_name="Output Format",
+                    tooltip="Prompt format for Qwen Image Edit Multiple Angles or JoyAI Image",
+                ),
                 io.Image.Input(
                     "image",
                     optional=True,
@@ -124,47 +195,16 @@ class QwenMultiangleCameraNode(io.ComfyNode):
         default_prompts=True,
         camera_view=False,
         image=None,
+        output_format=QWEN_OUTPUT_FORMAT,
     ) -> io.NodeOutput:
         horizontal_angle = max(0, min(360, int(horizontal_angle)))
         vertical_angle = max(-30, min(60, int(vertical_angle)))
         zoom = max(0.0, min(10.0, float(zoom)))
 
-        h_angle = horizontal_angle % 360
-
-        if h_angle < 22.5 or h_angle >= 337.5:
-            h_direction = "front view"
-        elif h_angle < 67.5:
-            h_direction = "front-right quarter view"
-        elif h_angle < 112.5:
-            h_direction = "right side view"
-        elif h_angle < 157.5:
-            h_direction = "back-right quarter view"
-        elif h_angle < 202.5:
-            h_direction = "back view"
-        elif h_angle < 247.5:
-            h_direction = "back-left quarter view"
-        elif h_angle < 292.5:
-            h_direction = "left side view"
+        if output_format == JOYAI_OUTPUT_FORMAT:
+            prompt = build_joyai_prompt(horizontal_angle, vertical_angle, zoom)
         else:
-            h_direction = "front-left quarter view"
-
-        if vertical_angle < -15:
-            v_direction = "low-angle shot"
-        elif vertical_angle < 15:
-            v_direction = "eye-level shot"
-        elif vertical_angle < 45:
-            v_direction = "elevated shot"
-        else:
-            v_direction = "high-angle shot"
-
-        if zoom < 2:
-            distance = "wide shot"
-        elif zoom < 6:
-            distance = "medium shot"
-        else:
-            distance = "close-up"
-
-        prompt = f"<sks> {h_direction} {v_direction} {distance}"
+            prompt = build_qwen_prompt(horizontal_angle, vertical_angle, zoom)
 
         # Save image to temp file for the frontend 3D widget
         ui_results: list[SavedResult] = []
@@ -195,8 +235,14 @@ class QwenMultiangleCameraNode(io.ComfyNode):
         default_prompts=True,
         camera_view=False,
         image=None,
+        output_format=QWEN_OUTPUT_FORMAT,
     ):
-        parts = [str(horizontal_angle), str(vertical_angle), str(zoom)]
+        parts = [
+            str(horizontal_angle),
+            str(vertical_angle),
+            str(zoom),
+            str(output_format),
+        ]
         if image is not None:
             parts.append(str(image.shape))
             try:

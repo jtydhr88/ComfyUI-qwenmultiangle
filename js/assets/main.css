@@ -120,7 +120,7 @@
   transform: scale(0.95);
 }
 
-.qwen-container[data-v-7061782c] {
+.qwen-container[data-v-965811cd] {
   width: 100%;
   height: 100%;
   position: relative;
@@ -129,7 +129,7 @@
   border-radius: 8px;
   overflow: hidden;
 }
-.prompt-overlay[data-v-7061782c] {
+.prompt-overlay[data-v-965811cd] {
   position: absolute;
   top: 8px;
   left: 8px;
