@@ -1,5 +1,84 @@
 import * as THREE from 'three'
-import type { CameraState, CameraWidgetOptions } from './types'
+import {
+  JOYAI_OUTPUT_FORMAT,
+  QWEN_OUTPUT_FORMAT,
+  type CameraState,
+  type CameraWidgetOptions,
+  type OutputFormat
+} from './types'
+
+type PromptState = Pick<CameraState, 'azimuth' | 'elevation' | 'distance'>
+
+export function buildPrompt(
+  state: PromptState,
+  outputFormat: OutputFormat = QWEN_OUTPUT_FORMAT
+): string {
+  if (outputFormat === JOYAI_OUTPUT_FORMAT) {
+    const normalizedAngle = ((state.azimuth % 360) + 360) % 360
+    const yaw = normalizedAngle <= 180 ? normalizedAngle : normalizedAngle - 360
+
+    // Practical mapping from this node's target-distance control to JoyAI's
+    // relative zoom operation; JoyAI does not define a numeric zoom scale.
+    let zoomOperation: string
+    if (state.distance < 2) {
+      zoomOperation = 'out'
+    } else if (state.distance < 6) {
+      zoomOperation = 'unchanged'
+    } else {
+      zoomOperation = 'in'
+    }
+
+    return [
+      'Move the camera.',
+      `- Camera rotation: Yaw ${yaw}°, Pitch ${state.elevation}°.`,
+      `- Camera zoom: ${zoomOperation}.`,
+      '- Keep the 3D scene static; only change the viewpoint.'
+    ].join('\n')
+  }
+
+  const hAngle = state.azimuth % 360
+
+  let hDirection: string
+  if (hAngle < 22.5 || hAngle >= 337.5) {
+    hDirection = "front view"
+  } else if (hAngle < 67.5) {
+    hDirection = "front-right quarter view"
+  } else if (hAngle < 112.5) {
+    hDirection = "right side view"
+  } else if (hAngle < 157.5) {
+    hDirection = "back-right quarter view"
+  } else if (hAngle < 202.5) {
+    hDirection = "back view"
+  } else if (hAngle < 247.5) {
+    hDirection = "back-left quarter view"
+  } else if (hAngle < 292.5) {
+    hDirection = "left side view"
+  } else {
+    hDirection = "front-left quarter view"
+  }
+
+  let vDirection: string
+  if (state.elevation < -15) {
+    vDirection = "low-angle shot"
+  } else if (state.elevation < 15) {
+    vDirection = "eye-level shot"
+  } else if (state.elevation < 45) {
+    vDirection = "elevated shot"
+  } else {
+    vDirection = "high-angle shot"
+  }
+
+  let distance: string
+  if (state.distance < 2) {
+    distance = "wide shot"
+  } else if (state.distance < 6) {
+    distance = "medium shot"
+  } else {
+    distance = "close-up"
+  }
+
+  return `<sks> ${hDirection} ${vDirection} ${distance}`
+}
 
 export class CameraWidget {
   private container: HTMLElement
@@ -588,49 +667,8 @@ export class CameraWidget {
     }
   }
 
-  public generatePrompt(): string {
-    const hAngle = this.state.azimuth % 360
-
-    let hDirection: string
-    if (hAngle < 22.5 || hAngle >= 337.5) {
-      hDirection = "front view"
-    } else if (hAngle < 67.5) {
-      hDirection = "front-right quarter view"
-    } else if (hAngle < 112.5) {
-      hDirection = "right side view"
-    } else if (hAngle < 157.5) {
-      hDirection = "back-right quarter view"
-    } else if (hAngle < 202.5) {
-      hDirection = "back view"
-    } else if (hAngle < 247.5) {
-      hDirection = "back-left quarter view"
-    } else if (hAngle < 292.5) {
-      hDirection = "left side view"
-    } else {
-      hDirection = "front-left quarter view"
-    }
-
-    let vDirection: string
-    if (this.state.elevation < -15) {
-      vDirection = "low-angle shot"
-    } else if (this.state.elevation < 15) {
-      vDirection = "eye-level shot"
-    } else if (this.state.elevation < 45) {
-      vDirection = "elevated shot"
-    } else {
-      vDirection = "high-angle shot"
-    }
-
-    let distance: string
-    if (this.state.distance < 2) {
-      distance = "wide shot"
-    } else if (this.state.distance < 6) {
-      distance = "medium shot"
-    } else {
-      distance = "close-up"
-    }
-
-    return `<sks> ${hDirection} ${vDirection} ${distance}`
+  public generatePrompt(outputFormat: OutputFormat = QWEN_OUTPUT_FORMAT): string {
+    return buildPrompt(this.state, outputFormat)
   }
 
   public setState(newState: Partial<CameraState>): void {
