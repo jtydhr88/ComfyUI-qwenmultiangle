@@ -18,10 +18,11 @@
 import SceneCanvas from './components/SceneCanvas.vue'
 import ControlPanel from './components/ControlPanel.vue'
 import { useCameraWidget } from './composables/useCameraWidget'
-import type { CameraState } from './types'
+import type { CameraState, OutputFormat } from './types'
 
 const props = defineProps<{
   initialState?: Partial<CameraState>
+  initialOutputFormat?: OutputFormat
   onStateChange?: (state: CameraState) => void
 }>()
 
@@ -32,13 +33,18 @@ const {
   prompt,
   initScene,
   setState,
+  setOutputFormat,
   updateImage,
   setCameraView,
   reset,
   cleanup
-} = useCameraWidget(props.initialState, props.onStateChange)
+} = useCameraWidget(
+  props.initialState,
+  props.initialOutputFormat,
+  props.onStateChange
+)
 
-defineExpose({ updateImage, setCameraView, setState, cleanup })
+defineExpose({ updateImage, setCameraView, setOutputFormat, setState, cleanup })
 </script>
 
 <style scoped>

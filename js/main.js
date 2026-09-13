@@ -26564,6 +26564,66 @@ if (typeof window !== "undefined") {
     window.__THREE__ = REVISION;
   }
 }
+const QWEN_OUTPUT_FORMAT = "Qwen Image Edit Multiple Angles";
+const JOYAI_OUTPUT_FORMAT = "JoyAI Image";
+function buildPrompt(state, outputFormat = QWEN_OUTPUT_FORMAT) {
+  if (outputFormat === JOYAI_OUTPUT_FORMAT) {
+    const normalizedAngle = (state.azimuth % 360 + 360) % 360;
+    const yaw = normalizedAngle <= 180 ? normalizedAngle : normalizedAngle - 360;
+    let zoomOperation;
+    if (state.distance < 2) {
+      zoomOperation = "out";
+    } else if (state.distance < 6) {
+      zoomOperation = "unchanged";
+    } else {
+      zoomOperation = "in";
+    }
+    return [
+      "Move the camera.",
+      `- Camera rotation: Yaw ${yaw}°, Pitch ${state.elevation}°.`,
+      `- Camera zoom: ${zoomOperation}.`,
+      "- Keep the 3D scene static; only change the viewpoint."
+    ].join("\n");
+  }
+  const hAngle = state.azimuth % 360;
+  let hDirection;
+  if (hAngle < 22.5 || hAngle >= 337.5) {
+    hDirection = "front view";
+  } else if (hAngle < 67.5) {
+    hDirection = "front-right quarter view";
+  } else if (hAngle < 112.5) {
+    hDirection = "right side view";
+  } else if (hAngle < 157.5) {
+    hDirection = "back-right quarter view";
+  } else if (hAngle < 202.5) {
+    hDirection = "back view";
+  } else if (hAngle < 247.5) {
+    hDirection = "back-left quarter view";
+  } else if (hAngle < 292.5) {
+    hDirection = "left side view";
+  } else {
+    hDirection = "front-left quarter view";
+  }
+  let vDirection;
+  if (state.elevation < -15) {
+    vDirection = "low-angle shot";
+  } else if (state.elevation < 15) {
+    vDirection = "eye-level shot";
+  } else if (state.elevation < 45) {
+    vDirection = "elevated shot";
+  } else {
+    vDirection = "high-angle shot";
+  }
+  let distance;
+  if (state.distance < 2) {
+    distance = "wide shot";
+  } else if (state.distance < 6) {
+    distance = "medium shot";
+  } else {
+    distance = "close-up";
+  }
+  return `<sks> ${hDirection} ${vDirection} ${distance}`;
+}
 class CameraWidget {
   constructor(options) {
     __publicField(this, "container");
@@ -27058,45 +27118,8 @@ class CameraWidget {
       this.onStateChange({ ...this.state });
     }
   }
-  generatePrompt() {
-    const hAngle = this.state.azimuth % 360;
-    let hDirection;
-    if (hAngle < 22.5 || hAngle >= 337.5) {
-      hDirection = "front view";
-    } else if (hAngle < 67.5) {
-      hDirection = "front-right quarter view";
-    } else if (hAngle < 112.5) {
-      hDirection = "right side view";
-    } else if (hAngle < 157.5) {
-      hDirection = "back-right quarter view";
-    } else if (hAngle < 202.5) {
-      hDirection = "back view";
-    } else if (hAngle < 247.5) {
-      hDirection = "back-left quarter view";
-    } else if (hAngle < 292.5) {
-      hDirection = "left side view";
-    } else {
-      hDirection = "front-left quarter view";
-    }
-    let vDirection;
-    if (this.state.elevation < -15) {
-      vDirection = "low-angle shot";
-    } else if (this.state.elevation < 15) {
-      vDirection = "eye-level shot";
-    } else if (this.state.elevation < 45) {
-      vDirection = "elevated shot";
-    } else {
-      vDirection = "high-angle shot";
-    }
-    let distance;
-    if (this.state.distance < 2) {
-      distance = "wide shot";
-    } else if (this.state.distance < 6) {
-      distance = "medium shot";
-    } else {
-      distance = "close-up";
-    }
-    return `<sks> ${hDirection} ${vDirection} ${distance}`;
+  generatePrompt(outputFormat = QWEN_OUTPUT_FORMAT) {
+    return buildPrompt(this.state, outputFormat);
   }
   setState(newState) {
     if (newState.azimuth !== void 0) {
@@ -27230,12 +27253,22 @@ class CameraWidget {
     }
   }
 }
-function useCameraWidget(initialState = {}, onExternalStateChange) {
+function useCameraWidget(initialState = {}, initialOutputFormat = QWEN_OUTPUT_FORMAT, onExternalStateChange) {
   const azimuth = ref(initialState.azimuth ?? 0);
   const elevation = ref(initialState.elevation ?? 0);
   const distance = ref(initialState.distance ?? 5);
   const imageUrl = ref(null);
-  const prompt = ref("<sks> front view eye-level shot medium shot");
+  const outputFormat = ref(initialOutputFormat);
+  const prompt = ref(
+    buildPrompt(
+      {
+        azimuth: azimuth.value,
+        elevation: elevation.value,
+        distance: distance.value
+      },
+      initialOutputFormat
+    )
+  );
   let widget = null;
   let updatingFromWidget = false;
   let updatingFromExternal = false;
@@ -27260,12 +27293,12 @@ function useCameraWidget(initialState = {}, onExternalStateChange) {
         azimuth.value = state.azimuth;
         elevation.value = state.elevation;
         distance.value = state.distance;
-        prompt.value = widget.generatePrompt();
+        prompt.value = widget.generatePrompt(outputFormat.value);
         updatingFromWidget = false;
         notifyParent();
       }
     });
-    prompt.value = widget.generatePrompt();
+    prompt.value = widget.generatePrompt(outputFormat.value);
   }
   watch([azimuth, elevation, distance], () => {
     if (!updatingFromWidget && !updatingFromExternal && widget) {
@@ -27274,7 +27307,7 @@ function useCameraWidget(initialState = {}, onExternalStateChange) {
         elevation: elevation.value,
         distance: distance.value
       });
-      prompt.value = widget.generatePrompt();
+      prompt.value = widget.generatePrompt(outputFormat.value);
       notifyParent();
     }
   }, { flush: "sync" });
@@ -27284,8 +27317,12 @@ function useCameraWidget(initialState = {}, onExternalStateChange) {
     if (state.elevation !== void 0) elevation.value = state.elevation;
     if (state.distance !== void 0) distance.value = state.distance;
     widget == null ? void 0 : widget.setState(state);
-    if (widget) prompt.value = widget.generatePrompt();
+    if (widget) prompt.value = widget.generatePrompt(outputFormat.value);
     updatingFromExternal = false;
+  }
+  function setOutputFormat(format) {
+    outputFormat.value = format;
+    if (widget) prompt.value = widget.generatePrompt(outputFormat.value);
   }
   function updateImage(url) {
     imageUrl.value = url;
@@ -27301,7 +27338,7 @@ function useCameraWidget(initialState = {}, onExternalStateChange) {
     distance.value = 5;
     updatingFromExternal = false;
     widget == null ? void 0 : widget.setState({ azimuth: 0, elevation: 0, distance: 5 });
-    if (widget) prompt.value = widget.generatePrompt();
+    if (widget) prompt.value = widget.generatePrompt(outputFormat.value);
     notifyParent();
   }
   function cleanup() {
@@ -27316,6 +27353,7 @@ function useCameraWidget(initialState = {}, onExternalStateChange) {
     prompt,
     initScene,
     setState,
+    setOutputFormat,
     updateImage,
     setCameraView,
     reset,
@@ -27328,6 +27366,7 @@ const _sfc_main = /* @__PURE__ */ defineComponent({
   __name: "App",
   props: {
     initialState: {},
+    initialOutputFormat: {},
     onStateChange: { type: Function }
   },
   setup(__props, { expose: __expose }) {
@@ -27339,12 +27378,17 @@ const _sfc_main = /* @__PURE__ */ defineComponent({
       prompt,
       initScene,
       setState,
+      setOutputFormat,
       updateImage,
       setCameraView,
       reset,
       cleanup
-    } = useCameraWidget(props.initialState, props.onStateChange);
-    __expose({ updateImage, setCameraView, setState, cleanup });
+    } = useCameraWidget(
+      props.initialState,
+      props.initialOutputFormat,
+      props.onStateChange
+    );
+    __expose({ updateImage, setCameraView, setOutputFormat, setState, cleanup });
     return (_ctx, _cache2) => {
       return openBlock(), createElementBlock("div", _hoisted_1, [
         createVNode(SceneCanvas, { "init-scene": unref(initScene) }, null, 8, ["init-scene"]),
@@ -27362,7 +27406,7 @@ const _sfc_main = /* @__PURE__ */ defineComponent({
     };
   }
 });
-const App = /* @__PURE__ */ _export_sfc(_sfc_main, [["__scopeId", "data-v-7061782c"]]);
+const App = /* @__PURE__ */ _export_sfc(_sfc_main, [["__scopeId", "data-v-965811cd"]]);
 const { app } = window.comfyAPI.app;
 const { api } = window.comfyAPI.api;
 (() => {
@@ -27410,16 +27454,30 @@ function readCameraViewFromNode(node) {
   const w = (_a = node.widgets) == null ? void 0 : _a.find((w2) => w2.name === "camera_view");
   return Boolean(w == null ? void 0 : w.value);
 }
+function asOutputFormat(value) {
+  return value === JOYAI_OUTPUT_FORMAT ? JOYAI_OUTPUT_FORMAT : QWEN_OUTPUT_FORMAT;
+}
+function readOutputFormatFromNode(node) {
+  var _a;
+  const stored = readStoredProps(node);
+  if ((stored == null ? void 0 : stored.outputFormat) !== void 0) return asOutputFormat(stored.outputFormat);
+  const w = (_a = node.widgets) == null ? void 0 : _a.find((w2) => w2.name === "output_format");
+  return asOutputFormat(w == null ? void 0 : w.value);
+}
 function syncWidgetsFromState(node, state) {
-  var _a, _b, _c, _d;
+  var _a, _b, _c, _d, _e;
   const h = (_a = node.widgets) == null ? void 0 : _a.find((w) => w.name === "horizontal_angle");
   const v = (_b = node.widgets) == null ? void 0 : _b.find((w) => w.name === "vertical_angle");
   const z = (_c = node.widgets) == null ? void 0 : _c.find((w) => w.name === "zoom");
   const cv = (_d = node.widgets) == null ? void 0 : _d.find((w) => w.name === "camera_view");
+  const outputFormat = (_e = node.widgets) == null ? void 0 : _e.find((w) => w.name === "output_format");
   if (state.azimuth !== void 0 && h) h.value = state.azimuth;
   if (state.elevation !== void 0 && v) v.value = state.elevation;
   if (state.distance !== void 0 && z) z.value = state.distance;
   if (state.cameraView !== void 0 && cv) cv.value = state.cameraView;
+  if (state.outputFormat !== void 0 && outputFormat) {
+    outputFormat.value = state.outputFormat;
+  }
 }
 function createInstance(node) {
   const container = document.createElement("div");
@@ -27434,6 +27492,7 @@ function createInstance(node) {
   instance.cleanupTimer = null;
   const vueApp = createApp(App, {
     initialState: readStateFromNode(node),
+    initialOutputFormat: readOutputFormatFromNode(node),
     onStateChange: (state) => {
       var _a;
       const live = instance.currentNode;
@@ -27487,6 +27546,11 @@ function bindWidgetCallbacks(node, exposed) {
     exposed.setCameraView(cameraView);
     writeStoredProps(node, { cameraView });
   });
+  wire("output_format", (v) => {
+    const outputFormat = asOutputFormat(v);
+    exposed.setOutputFormat(outputFormat);
+    writeStoredProps(node, { outputFormat });
+  });
 }
 function createCameraWidget(node) {
   var _a;
@@ -27499,6 +27563,7 @@ function createCameraWidget(node) {
     instance.currentNode = node;
     instance.exposed.setState(readStateFromNode(node));
     instance.exposed.setCameraView(readCameraViewFromNode(node));
+    instance.exposed.setOutputFormat(readOutputFormatFromNode(node));
   } else {
     instance = createInstance(node);
     if (readCameraViewFromNode(node)) {
@@ -27580,6 +27645,9 @@ function setupOnPropertyChanged(node, instance) {
     });
     if (state.cameraView !== void 0) {
       instance.exposed.setCameraView(Boolean(state.cameraView));
+    }
+    if (state.outputFormat !== void 0) {
+      instance.exposed.setOutputFormat(asOutputFormat(state.outputFormat));
     }
     syncWidgetsFromState(node, state);
   };

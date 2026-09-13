@@ -4,7 +4,14 @@ const { app } = window.comfyAPI.app
 const { api } = window.comfyAPI.api
 
 import App from './App.vue'
-import type { CameraState, AppExposed, QwenMultiangleNode } from './types'
+import {
+  JOYAI_OUTPUT_FORMAT,
+  QWEN_OUTPUT_FORMAT,
+  type CameraState,
+  type AppExposed,
+  type OutputFormat,
+  type QwenMultiangleNode
+} from './types'
 
 // Inject CSS from built assets
 ;(() => {
@@ -45,6 +52,7 @@ interface StoredCameraState {
   elevation: number
   distance: number
   cameraView: boolean
+  outputFormat: OutputFormat
 }
 
 function getWidgetValue(
@@ -87,6 +95,17 @@ function readCameraViewFromNode(node: QwenMultiangleNode): boolean {
   return Boolean(w?.value)
 }
 
+function asOutputFormat(value: unknown): OutputFormat {
+  return value === JOYAI_OUTPUT_FORMAT ? JOYAI_OUTPUT_FORMAT : QWEN_OUTPUT_FORMAT
+}
+
+function readOutputFormatFromNode(node: QwenMultiangleNode): OutputFormat {
+  const stored = readStoredProps(node)
+  if (stored?.outputFormat !== undefined) return asOutputFormat(stored.outputFormat)
+  const w = node.widgets?.find(w => w.name === 'output_format')
+  return asOutputFormat(w?.value)
+}
+
 function syncWidgetsFromState(
   node: QwenMultiangleNode,
   state: Partial<StoredCameraState>
@@ -95,10 +114,14 @@ function syncWidgetsFromState(
   const v = node.widgets?.find(w => w.name === 'vertical_angle')
   const z = node.widgets?.find(w => w.name === 'zoom')
   const cv = node.widgets?.find(w => w.name === 'camera_view')
+  const outputFormat = node.widgets?.find(w => w.name === 'output_format')
   if (state.azimuth !== undefined && h) h.value = state.azimuth
   if (state.elevation !== undefined && v) v.value = state.elevation
   if (state.distance !== undefined && z) z.value = state.distance
   if (state.cameraView !== undefined && cv) cv.value = state.cameraView
+  if (state.outputFormat !== undefined && outputFormat) {
+    outputFormat.value = state.outputFormat
+  }
 }
 
 function createInstance(node: QwenMultiangleNode): QwenInstance {
@@ -116,6 +139,7 @@ function createInstance(node: QwenMultiangleNode): QwenInstance {
 
   const vueApp = createApp(App, {
     initialState: readStateFromNode(node),
+    initialOutputFormat: readOutputFormatFromNode(node),
     onStateChange: (state: CameraState) => {
       const live = instance.currentNode
       syncWidgetsFromState(live, {
@@ -173,6 +197,11 @@ function bindWidgetCallbacks(
     exposed.setCameraView(cameraView)
     writeStoredProps(node, { cameraView })
   })
+  wire('output_format', v => {
+    const outputFormat = asOutputFormat(v)
+    exposed.setOutputFormat(outputFormat)
+    writeStoredProps(node, { outputFormat })
+  })
 }
 
 function createCameraWidget(node: QwenMultiangleNode): DOMWidgetInstance {
@@ -186,6 +215,7 @@ function createCameraWidget(node: QwenMultiangleNode): DOMWidgetInstance {
     instance.currentNode = node
     instance.exposed.setState(readStateFromNode(node))
     instance.exposed.setCameraView(readCameraViewFromNode(node))
+    instance.exposed.setOutputFormat(readOutputFormatFromNode(node))
   } else {
     instance = createInstance(node)
     if (readCameraViewFromNode(node)) {
@@ -302,6 +332,9 @@ function setupOnPropertyChanged(
     })
     if (state.cameraView !== undefined) {
       instance.exposed.setCameraView(Boolean(state.cameraView))
+    }
+    if (state.outputFormat !== undefined) {
+      instance.exposed.setOutputFormat(asOutputFormat(state.outputFormat))
     }
     syncWidgetsFromState(node, state)
   }

@@ -1,16 +1,31 @@
 import { ref, watch } from 'vue'
-import { CameraWidget } from '../CameraWidget'
-import type { CameraState } from '../types'
+import { CameraWidget, buildPrompt } from '../CameraWidget'
+import {
+  QWEN_OUTPUT_FORMAT,
+  type CameraState,
+  type OutputFormat
+} from '../types'
 
 export function useCameraWidget(
   initialState: Partial<CameraState> = {},
+  initialOutputFormat: OutputFormat = QWEN_OUTPUT_FORMAT,
   onExternalStateChange?: (state: CameraState) => void
 ) {
   const azimuth = ref(initialState.azimuth ?? 0)
   const elevation = ref(initialState.elevation ?? 0)
   const distance = ref(initialState.distance ?? 5)
   const imageUrl = ref<string | null>(null)
-  const prompt = ref('<sks> front view eye-level shot medium shot')
+  const outputFormat = ref<OutputFormat>(initialOutputFormat)
+  const prompt = ref(
+    buildPrompt(
+      {
+        azimuth: azimuth.value,
+        elevation: elevation.value,
+        distance: distance.value
+      },
+      initialOutputFormat
+    )
+  )
 
   let widget: CameraWidget | null = null
   let updatingFromWidget = false
@@ -38,12 +53,12 @@ export function useCameraWidget(
         azimuth.value = state.azimuth
         elevation.value = state.elevation
         distance.value = state.distance
-        prompt.value = widget!.generatePrompt()
+        prompt.value = widget!.generatePrompt(outputFormat.value)
         updatingFromWidget = false
         notifyParent()
       }
     })
-    prompt.value = widget.generatePrompt()
+    prompt.value = widget.generatePrompt(outputFormat.value)
   }
 
   watch([azimuth, elevation, distance], () => {
@@ -53,7 +68,7 @@ export function useCameraWidget(
         elevation: elevation.value,
         distance: distance.value
       })
-      prompt.value = widget.generatePrompt()
+      prompt.value = widget.generatePrompt(outputFormat.value)
       notifyParent()
     }
   }, { flush: 'sync' })
@@ -64,8 +79,13 @@ export function useCameraWidget(
     if (state.elevation !== undefined) elevation.value = state.elevation
     if (state.distance !== undefined) distance.value = state.distance
     widget?.setState(state)
-    if (widget) prompt.value = widget.generatePrompt()
+    if (widget) prompt.value = widget.generatePrompt(outputFormat.value)
     updatingFromExternal = false
+  }
+
+  function setOutputFormat(format: OutputFormat) {
+    outputFormat.value = format
+    if (widget) prompt.value = widget.generatePrompt(outputFormat.value)
   }
 
   function updateImage(url: string | null) {
@@ -84,7 +104,7 @@ export function useCameraWidget(
     distance.value = 5
     updatingFromExternal = false
     widget?.setState({ azimuth: 0, elevation: 0, distance: 5 })
-    if (widget) prompt.value = widget.generatePrompt()
+    if (widget) prompt.value = widget.generatePrompt(outputFormat.value)
     notifyParent()
   }
 
@@ -101,6 +121,7 @@ export function useCameraWidget(
     prompt,
     initScene,
     setState,
+    setOutputFormat,
     updateImage,
     setCameraView,
     reset,

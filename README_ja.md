@@ -108,6 +108,7 @@ ComfyUI-qwenmultiangle/
 | zoom | スライダー | カメラ距離/ズームレベル (0 - 10) |
 | default_prompts | チェックボックス | **非推奨** - 後方互換性のためのみ保持、効果なし |
 | camera_view | チェックボックス | カメラの視点からシーンをプレビュー |
+| output_format | ドロップダウン | `Qwen Image Edit Multiple Angles`（デフォルト）または `JoyAI Image` のプロンプト形式を選択 |
 
 ### 3Dビューポート制御
 
@@ -164,6 +165,10 @@ UI言語に関係なく、出力プロンプトは常に英語です。
 
 ### 出力プロンプト形式
 
+`output_format` で `Qwen Image Edit Multiple Angles` または `JoyAI Image` を選択できます。
+
+#### Qwen Image Edit Multiple Angles
+
 ノードは[Qwen-Image-Edit-2511-Multiple-Angles-LoRA](https://huggingface.co/fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA)が必要とする形式でプロンプトを出力します：
 
 ```
@@ -182,6 +187,24 @@ UI言語に関係なく、出力プロンプトは常に英語です。
 | アジマス | `front view`、`front-right quarter view`、`right side view`、`back-right quarter view`、`back view`、`back-left quarter view`、`left side view`、`front-left quarter view` |
 | エレベーション | `low-angle shot` (-30°)、`eye-level shot` (0°)、`elevated shot` (30°)、`high-angle shot` (60°) |
 | 距離 | `close-up`、`medium shot`、`wide shot` |
+
+#### JoyAI Image
+
+`JoyAI Image` は公式の [JoyAI-Imageカメラ制御プロンプト形式](https://github.com/jd-opensource/JoyAI-Image#33-camera-control)を使用します：
+
+```
+Move the camera.
+- Camera rotation: Yaw -90°, Pitch -30°.
+- Camera zoom: out.
+- Keep the 3D scene static; only change the viewpoint.
+```
+
+- 入力画像の視点を0°の基準として扱います。
+- 水平角度0°〜180°はそのままYawに使用し、181°〜359°は負の角度に変換し、360°は0°になります。
+- 垂直角度はそのままPitchに使用します。
+- このノードでは数値のzoomをJoyAIの相対操作に変換します。2未満は `out`、2以上6未満は `unchanged`、6以上は `in` です。これはJoyAI公式の数値変換ではなく、このノードによる実用的な変換規則です。デフォルト値5は `unchanged` になります。
+
+**Qwen Multiangle Camera Translate** ノードはQwenのカメラ／ショット語彙向けであり、JoyAI形式には対応していません。
 
 ## カメラプロンプト翻訳ノード
 

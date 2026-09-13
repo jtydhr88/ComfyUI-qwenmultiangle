@@ -108,6 +108,7 @@ ComfyUI-qwenmultiangle/
 | zoom | 滑块 | 相机距离/缩放级别 (0 - 10) |
 | default_prompts | 复选框 | **已弃用** - 仅为向后兼容保留，无实际效果 |
 | camera_view | 复选框 | 从相机视角预览场景 |
+| output_format | 下拉菜单 | 选择 `Qwen Image Edit Multiple Angles`（默认）或 `JoyAI Image` 提示词格式 |
 
 ### 3D 视口控制
 
@@ -164,6 +165,10 @@ UI 标签会根据你的 ComfyUI 语言设置自动翻译：
 
 ### 输出提示词格式
 
+使用 `output_format` 可选择 `Qwen Image Edit Multiple Angles` 或 `JoyAI Image`。
+
+#### Qwen Image Edit Multiple Angles
+
 节点输出符合 [Qwen-Image-Edit-2511-Multiple-Angles-LoRA](https://huggingface.co/fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA) 要求格式的提示词：
 
 ```
@@ -182,6 +187,24 @@ UI 标签会根据你的 ComfyUI 语言设置自动翻译：
 | 方位角 | `front view`、`front-right quarter view`、`right side view`、`back-right quarter view`、`back view`、`back-left quarter view`、`left side view`、`front-left quarter view` |
 | 仰角 | `low-angle shot` (-30°)、`eye-level shot` (0°)、`elevated shot` (30°)、`high-angle shot` (60°) |
 | 距离 | `close-up`、`medium shot`、`wide shot` |
+
+#### JoyAI Image
+
+`JoyAI Image` 使用官方的 [JoyAI-Image 相机控制提示词格式](https://github.com/jd-opensource/JoyAI-Image#33-camera-control)：
+
+```
+Move the camera.
+- Camera rotation: Yaw -90°, Pitch -30°.
+- Camera zoom: out.
+- Keep the 3D scene static; only change the viewpoint.
+```
+
+- 输入图像的视角被视为0°基准。
+- 水平角度0°至180°直接用作Yaw；181°至359°转换为负角度，360°转换为0°。
+- 垂直角度直接用作Pitch。
+- 本节点将数值zoom转换为JoyAI的相对操作：小于2时为 `out`，大于等于2且小于6时为 `unchanged`，大于等于6时为 `in`。这是本节点采用的实用转换规则，并非JoyAI官方的数值映射。默认zoom值5会生成 `unchanged`。
+
+**Qwen Multiangle Camera Translate** 节点面向Qwen的相机／镜头词汇，不支持JoyAI提示词格式。
 
 ## 相机提示词翻译节点
 
